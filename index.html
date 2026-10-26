@@ -163,7 +163,7 @@ window.dash = (() => {
       <select class="esl-select" id="campaign-picker" aria-label="Campaign" data-source="campaign_options"><option value="all">All campaigns</option></select>
       <div class="esl-dates"><label>From <input type="date" id="date-from"></label><label>To <input type="date" id="date-to"></label></div>
       <div class="esl-range" role="group" aria-label="Date range">
-      <button type="button" data-r="7">Last 7 days</button><button type="button" data-r="14">Last 14 days</button><button type="button" data-r="all">All dates</button>
+      <button type="button" data-r="today">Today</button><button type="button" data-r="yesterday">Yesterday</button><button type="button" data-r="7">Last 7 days</button><button type="button" data-r="14">Last 14 days</button><button type="button" data-r="all">All dates</button>
       </div>
     </div>
   </header>
@@ -493,7 +493,12 @@ dash.calc('campaign_list', {
 
   const btns = [...root.querySelectorAll('.esl-range button')];
   const iso = d3.utcFormat('%Y-%m-%d'), parse = (s) => new Date(s + 'T00:00:00Z');
-  const presetFor = (r) => (r === 'all' ? { from: dash.MIN, to: dash.MAX } : { from: iso(d3.utcDay.offset(parse(dash.MAX), -(Number(r) - 1))), to: dash.MAX });
+  const presetFor = (r) => {
+    if (r === 'all') return { from: dash.MIN, to: dash.MAX };
+    if (r === 'today') return { from: dash.MAX, to: dash.MAX };
+    if (r === 'yesterday') { const y = iso(d3.utcDay.offset(parse(dash.MAX), -1)); return { from: y, to: y }; }
+    return { from: iso(d3.utcDay.offset(parse(dash.MAX), -(Number(r) - 1))), to: dash.MAX };
+  };
   btns.forEach((b) => b.addEventListener('click', () => dash.setParams(presetFor(b.dataset.r))));
   const dFrom = root.querySelector('#date-from'), dTo = root.querySelector('#date-to');
   for (const el of [dFrom, dTo]) { el.min = dash.MIN; el.max = dash.MAX; }
@@ -516,7 +521,8 @@ dash.calc('campaign_list', {
         const vs = el.parentElement.querySelector('.vs');
         if (v == null) { el.textContent = '—'; vs.textContent = ''; return; }
         el.textContent = (v > 0 ? '▲ ' : v < 0 ? '▼ ' : '') + d3.format('+.1%')(v);
-        vs.textContent = row.prev_from ? ' vs prior ' + (d3.utcDay.count(new Date(row.from + 'T00:00:00Z'), new Date(row.to + 'T00:00:00Z')) + 1) + ' days' : '';
+        const nd = d3.utcDay.count(new Date(row.from + 'T00:00:00Z'), new Date(row.to + 'T00:00:00Z')) + 1;
+        vs.textContent = row.prev_from ? (nd === 1 ? ' vs day before' : ' vs prior ' + nd + ' days') : '';
         if (el.dataset.dir !== 'none' && v !== 0) el.classList.add((v > 0) === (el.dataset.dir === 'up') ? 'good' : 'bad');
       } else el.textContent = (fmt[el.dataset.fmt] || String)(v);
     });
